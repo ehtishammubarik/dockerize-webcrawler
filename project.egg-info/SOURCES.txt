@@ -1,0 +1,14 @@
+setup.py
+immo_crawl/__init__.py
+immo_crawl/items.py
+immo_crawl/middlewares.py
+immo_crawl/pipelines.py
+immo_crawl/settings.py
+immo_crawl/spiders/__init__.py
+immo_crawl/spiders/immoscout_spider.py
+immo_crawl/spiders/pricecheck_spider.py
+project.egg-info/PKG-INFO
+project.egg-info/SOURCES.txt
+project.egg-info/dependency_links.txt
+project.egg-info/entry_points.txt
+project.egg-info/top_level.txt

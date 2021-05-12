@@ -1,0 +1,8 @@
+build/
+
+logs/
+
+.idea/
+
+.DS_store
+
