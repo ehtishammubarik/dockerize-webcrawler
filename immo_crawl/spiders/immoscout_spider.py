@@ -5,7 +5,7 @@ from immo_crawl.items import ImmoCrawlItem, ImmoScoutLoader
 
 
 # Login-Angaben für die Postgres-Datenbank
-hostname = 'localhost'
+hostname = 'postgres'
 username = 'postgres'
 password = 'dB$A5Be?&^5q'
 database = 'eva_db'
