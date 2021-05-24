@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 # Login-Daten für die Datenbank
-hostname = 'postgres'
+hostname = 'localhost'
 username = 'postgres'
 password = 'dB$A5Be?&^5q'
 database = 'eva_db'
