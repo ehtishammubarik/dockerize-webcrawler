@@ -2,35 +2,19 @@ version: '3'
 
 services:
 
-  scrapyd:
-    container_name: scrapyd
-    image: vimagick/scrapyd:py3
-    ports:
-      - "6800:6800"
-    volumes:
-      - ./data:/var/lib/scrapyd
-        #  - /usr/local/lib/python3.7/dist-packages
-    restart: unless-stopped
+  scrapper:
+    container_name: scrapper
+    build: 
+      context: . 
+      dockerfile: Dockerfile
+    command:  bash start.sh 
+    network_mode: host
+    # ports:
+    #        - 6800:6800
+    restart: always
+    depends_on: 
+        - postgres
 
-  scrapy:
-    container_name: scrapy
-    image: vimagick/scrapyd:py3
-    command: bash
-    volumes:
-      - .:/code
-    working_dir: /code
-    restart: unless-stopped
-
-  scrapyrt:
-    container_name: scrapyrt
-    image: vimagick/scrapyd:py3
-    command: scrapyrt -i 0.0.0.0 -p 9080
-    ports:
-      - "9080:9080"
-    volumes:
-      - .:/code
-    working_dir: /code
-    restart: unless-stopped
   postgres:
     build:
       context: . 
@@ -38,8 +22,8 @@ services:
     container_name: postgres
     environment:
        POSTGRES_PASSWORD: dB$A5Be?&^5q
-       #POSTGRES_DB: eva_db
-    ports:
-      - 5432:5432
-        #  network_mode: host
+       POSTGRES_DB: eva_db
+    network_mode: host
+    # ports:
+    #   - 5432:5432
     restart: always

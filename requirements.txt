@@ -1,4 +1,5 @@
 scrapy~=2.4.1
+scrapyd
 psycopg2~=2.8.5
 itemloaders~=1.0.4
 itemadapter~=0.1.1
