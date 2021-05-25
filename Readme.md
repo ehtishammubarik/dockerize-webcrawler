@@ -1,4 +1,4 @@
-## RUN scrapper with docker-compose 
+## Scrapyd webcrawlers with postgresql and docker 
 ## 
 # Pre-requisites 
 Install docker 
