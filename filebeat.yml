@@ -1,0 +1,37 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths: 
+    - '/usr/web_crawler/immoscout/*.log'
+  fields:
+    filetype: immoscout
+  multiline.pattern: '^[[:space:]]' 
+  multiline.negate: false 
+  multiline.match: after
+
+- type: log
+  enabled: true
+  paths: 
+    - '/usr/web_crawler/pricecheck/*.log'
+  fields:
+    filetype: pricecheck
+  multiline.pattern: '^[[:space:]]' 
+  multiline.negate: false 
+  multiline.match: after
+
+# processors:
+# - add_docker_metadata:
+#     host: "unix:///var/run/docker.sock"
+
+# - decode_json_fields:
+#     fields: ["message"]
+#     target: "json"
+#     overwrite_keys: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  # indices:
+  #   - index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+
+#logging.json: true
+#logging.metrics.enabled: false
