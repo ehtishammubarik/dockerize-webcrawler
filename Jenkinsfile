@@ -3,7 +3,7 @@ pipeline {
     stages {
         stage('Build') { 
             steps {
-                npm -v 
+                npm -
             }
         }
         stage('Test') { 
@@ -11,10 +11,6 @@ pipeline {
                 npm -v
             }
         }
-        stage('Deploy') { 
-            steps {
-                npm -v
-            }
         }
     }
 }
