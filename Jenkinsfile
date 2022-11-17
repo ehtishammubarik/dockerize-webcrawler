@@ -3,12 +3,12 @@ pipeline {
     stages {
         stage('Build') { 
             steps {
-                bat '''  ECHO Hello World  '''
+                bat '''  npm -v '''
             }
         }
         stage('Test') { 
             steps {
-               bat '''  ECHO Hello World  '''
+               bat '''  npm -v '''
             }
         }
     }
