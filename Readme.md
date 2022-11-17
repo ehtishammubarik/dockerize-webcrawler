@@ -23,4 +23,4 @@ curl http://localhost:6800/schedule.json -d project=immo_crawl -d spider=immosco
 
 ```
 
-Thank You..
+Thank You.
