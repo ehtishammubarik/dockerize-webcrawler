@@ -3,7 +3,7 @@ pipeline {
     stages {
         stage('Build') { 
             steps {
-                npm -
+                npm -v
             }
         }
         stage('Test') { 
