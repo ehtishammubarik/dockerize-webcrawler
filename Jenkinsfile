@@ -11,6 +11,5 @@ pipeline {
                 npm -v
             }
         }
-        }
     }
 }
