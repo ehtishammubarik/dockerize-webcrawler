@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Verify the core has no runtime dependencies
+        run: |
+          # The whole point of the core is that it runs anywhere. If an import
+          # of a third-party package sneaks in, this job fails before the tests
+          # get a chance to pass under a fatter environment.
+          pip install pipdeptree
+          pipdeptree --packages webcorpus --warn fail
+
+      - name: Test
+        run: pytest --cov=webcorpus --cov-report=term-missing --cov-report=xml
+
+      - name: Smoke test the CLI
+        run: |
+          printf '%s\n' '{"url":"https://example.com/a","text":"Kubernetes schedules GPU workloads through the NVIDIA device plugin. The plugin advertises nvidia.com/gpu as an allocatable resource on every node. Fragmentation dominates once training and inference share a pool. MIG partitioning splits an A100 into as many as seven instances."}' > /tmp/in.jsonl
+          python -m webcorpus.cli build /tmp/in.jsonl -o /tmp/ds
+          test -f /tmp/ds/manifest.json
+          test -f /tmp/ds/stats.json
+          python -m webcorpus.cli assess /tmp/in.jsonl
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check webcorpus tests
+      - run: ruff format --check webcorpus tests
