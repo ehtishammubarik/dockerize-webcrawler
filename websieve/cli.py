@@ -56,13 +56,13 @@ def _positive_int(value: str) -> int:
     return n
 
 
-def _sample_docs(docs: Iterator[Document], n: int) -> list[Document]:
+def _sample_docs(docs: Iterator[Document], n: int, rng: random.Random) -> list[Document]:
     sample: list[Document] = []
     for seen, doc in enumerate(docs, 1):
         if len(sample) < n:
             sample.append(doc)
             continue
-        idx = random.randrange(seen)
+        idx = rng.randrange(seen)
         if idx < n:
             sample[idx] = doc
     return sample
@@ -112,7 +112,7 @@ def cmd_assess(args: argparse.Namespace) -> int:
     sampled = args.sample is not None
 
     if sampled:
-        docs = _sample_docs(docs, args.sample)
+        docs = _sample_docs(docs, args.sample, random.Random(args.seed))
 
     for doc in docs:
         total += 1
@@ -224,6 +224,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         metavar="N",
         help="assess a reservoir sample of N documents after reading the full stream",
+    )
+    a.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="seed for --sample so repeated assess runs are reproducible",
     )
     a.set_defaults(func=cmd_assess)
 
