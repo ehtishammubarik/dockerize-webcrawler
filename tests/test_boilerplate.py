@@ -9,7 +9,7 @@ BODY2 = (
     "instances, which changes the bin packing problem for inference workloads."
 )
 
-PAGE = f"""<html><head><title>A Post &mdash; Blog</title></head><body>
+PAGE = f"""<html><head><title>Tom &amp; Jerry&#39;s Blog</title></head><body>
 <nav><a href="/">Home</a><a href="/a">About</a><a href="/c">Contact</a></nav>
 <article><h1>GPU scheduling</h1><p>{BODY}</p><p>{BODY2}</p></article>
 <footer><a href="/p">Privacy</a><a href="/t">Terms</a></footer>
@@ -34,7 +34,7 @@ def test_keeps_heading_adjacent_to_body():
 
 def test_decodes_title_entities():
     _, title = extract(PAGE)
-    assert title == "A Post — Blog"
+    assert title == "Tom & Jerry's Blog"
 
 
 def test_empty_and_whitespace_input():
