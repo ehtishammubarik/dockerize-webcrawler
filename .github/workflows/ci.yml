@@ -35,15 +35,15 @@ jobs:
           python .github/scripts/check_no_deps.py
 
       - name: Test
-        run: pytest --cov=webcorpus --cov-report=term-missing --cov-report=xml
+        run: pytest --cov=websieve --cov-report=term-missing --cov-report=xml
 
       - name: Smoke test the CLI
         run: |
           printf '%s\n' '{"url":"https://example.com/a","text":"Kubernetes schedules GPU workloads through the NVIDIA device plugin. The plugin advertises nvidia.com/gpu as an allocatable resource on every node. Fragmentation dominates once training and inference share a pool. MIG partitioning splits an A100 into as many as seven instances."}' > /tmp/in.jsonl
-          python -m webcorpus.cli build /tmp/in.jsonl -o /tmp/ds
+          python -m websieve.cli build /tmp/in.jsonl -o /tmp/ds
           test -f /tmp/ds/manifest.json
           test -f /tmp/ds/stats.json
-          python -m webcorpus.cli assess /tmp/in.jsonl
+          python -m websieve.cli assess /tmp/in.jsonl
 
   lint:
     runs-on: ubuntu-latest
@@ -53,5 +53,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check webcorpus tests
-      - run: ruff format --check webcorpus tests
+      - run: ruff check websieve tests
+      - run: ruff format --check websieve tests

@@ -172,7 +172,7 @@ class ParquetShardWriter:
         except ImportError as exc:  # pragma: no cover - depends on env
             raise ImportError(
                 "ParquetShardWriter requires pyarrow. Install it with "
-                "'pip install webcorpus[parquet]', or use JsonlShardWriter "
+                "'pip install websieve[parquet]', or use JsonlShardWriter "
                 "which has no dependencies."
             ) from exc
         self.out_dir = Path(out_dir)

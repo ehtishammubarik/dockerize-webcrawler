@@ -13,7 +13,7 @@ Assume the author tested the happy path. Look for what they did not.
 ## What to check, in order
 
 1. **Did a dependency sneak into the core?**
-   `grep -rE '^\s*(import|from) ' webcorpus/ | grep -vE 'import (re|json|gzip|os|sys|hashlib|random|unicodedata|statistics|html|argparse)|from (dataclasses|typing|pathlib|collections|datetime|html\.parser|__future__)'`
+   `grep -rE '^\s*(import|from) ' websieve/ | grep -vE 'import (re|json|gzip|os|sys|hashlib|random|unicodedata|statistics|html|argparse)|from (dataclasses|typing|pathlib|collections|datetime|html\.parser|__future__)'`
    Anything surviving that filter is either stdlib you should verify or a
    violation.
 

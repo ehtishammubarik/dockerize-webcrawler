@@ -49,7 +49,7 @@ scope.
 
 ## Before publishing a dataset
 
-- Strip personal data. `webcorpus` does **not** do PII removal; there is no
+- Strip personal data. `websieve` does **not** do PII removal; there is no
   such stage, and assuming otherwise is a compliance incident.
 - Keep source URLs so provenance is auditable and takedowns are actionable.
 - State the licence, the crawl date, and the collection method.
@@ -61,9 +61,9 @@ Do not claim otherwise in docs or code comments:
 
 - No PII detection or redaction.
 - No licence detection.
-- No robots.txt enforcement inside `webcorpus` itself; that belongs to the
+- No robots.txt enforcement inside `websieve` itself; that belongs to the
   crawler upstream.
 - No copyright or terms of service checking.
 
-`webcorpus` filters for corpus *quality*, not for legal *permissibility*. They
+`websieve` filters for corpus *quality*, not for legal *permissibility*. They
 are different problems and only one of them is solved here.

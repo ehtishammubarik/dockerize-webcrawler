@@ -1,11 +1,11 @@
 # Tuning
 
-Run `webcorpus assess` first. It reports what *would* be dropped without
+Run `websieve assess` first. It reports what *would* be dropped without
 dropping anything, so you can calibrate against your own corpus rather than
 against defaults chosen for general web text.
 
 ```bash
-webcorpus assess crawl.jsonl -v | head -50
+websieve assess crawl.jsonl -v | head -50
 ```
 
 ## Reading stats.json
@@ -39,7 +39,7 @@ There is no correct value, but there are recognizable failure modes.
 | 30% to 70% | Typical for a general web crawl |
 | Below 10% | Thresholds are wrong for this corpus, or extraction is failing upstream |
 
-Before assuming the filter is too aggressive, run `webcorpus extract` on a few
+Before assuming the filter is too aggressive, run `websieve extract` on a few
 pages. A low keep rate is very often an extraction problem wearing a quality
 problem's clothes: if extraction returns nav text, quality correctly rejects it.
 
@@ -89,7 +89,7 @@ The defaults come from general-web recipes. Narrow corpora usually need:
 - **`--exact-level raw`** if numeric differences are the signal you are after.
 
 ```python
-from webcorpus.quality.heuristics import assess, word_count, repetition_ratio
+from websieve.quality.heuristics import assess, word_count, repetition_ratio
 
 rules = (lambda t: word_count(t, lo=15), repetition_ratio)
 report = assess(text, rules=rules)
@@ -98,7 +98,7 @@ report = assess(text, rules=rules)
 ## Embedding throughput
 
 ```python
-from webcorpus.embed.encoder import adaptive_batches, padding_efficiency
+from websieve.embed.encoder import adaptive_batches, padding_efficiency
 
 batches = adaptive_batches(texts, max_batch_tokens=16_384)
 print(padding_efficiency(batches))

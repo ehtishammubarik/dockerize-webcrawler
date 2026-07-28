@@ -1,10 +1,10 @@
-# webcorpus
+# websieve
 
 Crawl-to-dataset pipeline. Extract, filter, deduplicate, embed, shard.
 
 ## The one rule that shapes everything else
 
-**The core has zero runtime dependencies.** `webcorpus/` imports stdlib only.
+**The core has zero runtime dependencies.** `websieve/` imports stdlib only.
 
 Before adding any import, check it is stdlib. If a stage genuinely needs a third
 party package, it goes behind a guarded import inside the function that uses it
@@ -16,22 +16,22 @@ acquires a dependency, so this is enforced rather than aspirational.
 
 | Path | Holds |
 | :--- | :--- |
-| `webcorpus/models.py` | `Document`, carried through every stage |
-| `webcorpus/clean/` | HTML extraction, Unicode normalization |
-| `webcorpus/quality/` | Nine Gopher and C4 heuristics |
-| `webcorpus/dedup/` | Exact hashing, MinHash with LSH |
-| `webcorpus/embed/` | Adaptive batching, encoder protocol |
-| `webcorpus/export/` | Sharded writers, manifests |
-| `webcorpus/pipeline.py` | Stage orchestration and stats |
-| `webcorpus/cli.py` | `build`, `assess`, `dedup`, `extract` |
+| `websieve/models.py` | `Document`, carried through every stage |
+| `websieve/clean/` | HTML extraction, Unicode normalization |
+| `websieve/quality/` | Nine Gopher and C4 heuristics |
+| `websieve/dedup/` | Exact hashing, MinHash with LSH |
+| `websieve/embed/` | Adaptive batching, encoder protocol |
+| `websieve/export/` | Sharded writers, manifests |
+| `websieve/pipeline.py` | Stage orchestration and stats |
+| `websieve/cli.py` | `build`, `assess`, `dedup`, `extract` |
 | `immo_crawl/` | Original Scrapy crawler, kept as an integration example |
 
 ## Before you commit
 
 ```bash
 pytest                              # 107 tests, must all pass
-ruff check webcorpus tests
-ruff format --check webcorpus tests
+ruff check websieve tests
+ruff format --check websieve tests
 ```
 
 ## Conventions that are not obvious from the code

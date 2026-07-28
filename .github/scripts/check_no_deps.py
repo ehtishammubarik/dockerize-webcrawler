@@ -3,7 +3,7 @@ import ast, pathlib, sys
 stdlib = sys.stdlib_module_names
 violations, guarded = [], []
 
-for path in sorted(pathlib.Path("webcorpus").rglob("*.py")):
+for path in sorted(pathlib.Path("websieve").rglob("*.py")):
     tree = ast.parse(path.read_text())
     # Module-level imports are direct children of the module body.
     toplevel = {id(n) for n in ast.walk(tree)
@@ -17,7 +17,7 @@ for path in sorted(pathlib.Path("webcorpus").rglob("*.py")):
         else:
             continue
         for mod in mods:
-            if mod in stdlib or mod == "webcorpus":
+            if mod in stdlib or mod == "websieve":
                 continue
             entry = f"{path}:{node.lineno} {mod}"
             (violations if id(node) in toplevel else guarded).append(entry)

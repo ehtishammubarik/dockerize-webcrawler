@@ -1,36 +1,81 @@
-# webcorpus
+# websieve
 
 **Turn a web crawl into an ML-ready dataset.** Extract, filter, deduplicate, embed, shard.
 
-[![CI](https://github.com/ehtishammubarik/dockerize-webcrawler/actions/workflows/ci.yml/badge.svg)](https://github.com/ehtishammubarik/dockerize-webcrawler/actions/workflows/ci.yml)
+[![CI](https://github.com/ehtishammubarik/websieve/actions/workflows/ci.yml/badge.svg)](https://github.com/ehtishammubarik/websieve/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/core%20dependencies-none-success)
 ![Coverage](https://img.shields.io/badge/coverage-92%25-success)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Crawling is the easy part. What stops a crawl from being training data is everything after it:
-navigation chrome mixed into the text, the same page under six URLs, SEO spam that reads like prose
-to a regex, and a corpus that will not fit in memory when you try to deduplicate it.
+## What this actually is
 
-`webcorpus` is the stage between your crawler and your model.
+You scraped 50,000 pages. You cannot train on them, because a scraped page is not a document.
+
+**In:** raw HTML, one JSON object per line.
+
+```json
+{"url": "https://example.com/gpu-guide",
+ "html": "<html><head><title>GPU scheduling on Kubernetes</title></head><body><nav><a href='/'>Home</a><a href='/about'>About</a></nav><article><h1>GPU scheduling</h1><p>Kubernetes exposes GPUs through the NVIDIA device plugin, which advertises nvidia.com/gpu as an allocatable resource on every node...</p></article><footer>&copy; 2026 Example Inc. Privacy Policy</footer></body></html>"}
+```
+
+**Out:** clean text, deduplicated, quality-scored, in gzipped shards a dataloader can stream.
+
+```json
+{"doc_id": "dc1bf1ffa1945c31",
+ "url": "https://example.com/gpu-guide",
+ "title": "GPU scheduling on Kubernetes",
+ "text": "GPU scheduling\n\nKubernetes exposes GPUs through the NVIDIA device plugin, which advertises...",
+ "quality": {"passed": true, "rules": {"word_count": {"passed": true, "value": 104, "threshold": 50}}},
+ "signatures": {"raw": "81879111...", "normalized": "0745f9c2...", "structural": "a74bccb9..."}}
+```
+
+The nav, the footer, and the copyright line are gone. The title came from `<title>`, the body from
+the article, and nothing else survived. Across a real crawl, so do the 9,884 pages that were the
+same article under a different URL and the 14,022 that were link farms, stub pages, or SEO spam.
+
+Both blocks above are actual output, not illustration. `docs/quickstart.md` reproduces them in
+about a minute.
+
+**That gap is the whole product.** Crawling is solved; Scrapy does it. Training is solved; your
+framework does it. The part in between, where a crawl becomes a corpus, is where people quietly lose
+weeks and then train on duplicates anyway.
+
+## Who this is for
+
+- **You are building an LLM or RAG corpus** from crawled pages and need dedup that catches near
+  duplicates, not just byte-identical ones.
+- **You run a scraper in production** and want the cleaning stage to be a library with tests rather
+  than a 400-line `clean.py` nobody wants to touch.
+- **You cannot install dependencies** where the cleaning has to run: someone else's container, a
+  locked-down build box, an air-gapped environment.
+
+If you want a distributed, Spark-scale pipeline with a cluster behind it, use HuggingFace's
+`datatrove`. `websieve` deliberately runs in one process with no dependencies, which is the right
+trade below roughly ten million documents and the wrong one above it.
+
+## How it works
 
 ```
 crawl -> extract -> normalize -> exact dedup -> quality -> near dedup -> embed -> shards
          boilerplate  NFKC       3 levels       9 rules    MinHash+LSH   batched
 ```
 
-**The core has no dependencies.** Not "few". None. It runs inside whatever scraper container you
-already have, on a build box with no wheels, or in an air-gapped environment, and the only thing
-that changes is throughput. `pyarrow`, `torch`, and `scrapy` are optional extras used only by the
-stages that genuinely need them.
+Each stage costs more than the one before it, so each shrinks the input to the next. One hash beats
+nine heuristics; nine heuristics beat 128 hash permutations. Details in
+[`docs/architecture.md`](docs/architecture.md).
+
+**The core has no dependencies.** Not "few". None. `pyarrow`, `torch`, and `scrapy` are optional
+extras used only by the stages that genuinely need them, and CI fails if a third-party import ever
+reaches the core.
 
 ## Install
 
 ```bash
-pip install webcorpus                # core, zero dependencies
-pip install "webcorpus[parquet]"     # + Parquet output
-pip install "webcorpus[embed]"       # + GPU embedding
-pip install "webcorpus[all]"
+pip install websieve                # core, zero dependencies
+pip install "websieve[parquet]"     # + Parquet output
+pip install "websieve[embed]"       # + GPU embedding
+pip install "websieve[all]"
 ```
 
 ## Use
@@ -38,13 +83,13 @@ pip install "webcorpus[all]"
 Pipe a crawl straight in:
 
 ```bash
-scrapy crawl myspider -o - -t jsonlines | webcorpus build - -o dataset/
+scrapy crawl myspider -o - -t jsonlines | websieve build - -o dataset/
 ```
 
 Or run against a file:
 
 ```bash
-webcorpus build crawl.jsonl -o dataset/ --threshold 0.85 --shard-size 50000
+websieve build crawl.jsonl -o dataset/ --threshold 0.85 --shard-size 50000
 ```
 
 You get sharded output, a manifest, and a stats report:
@@ -76,16 +121,16 @@ That breakdown is the point. A filter you cannot attribute is a filter you canno
 ### Inspect before you commit
 
 ```bash
-webcorpus assess crawl.jsonl -v      # what would be dropped, and why. Drops nothing.
-webcorpus dedup  crawl.jsonl         # duplicate clusters with similarity scores
-webcorpus extract page.html          # main-content text from one page
+websieve assess crawl.jsonl -v      # what would be dropped, and why. Drops nothing.
+websieve dedup  crawl.jsonl         # duplicate clusters with similarity scores
+websieve extract page.html          # main-content text from one page
 ```
 
 ### As a library
 
 ```python
-from webcorpus.pipeline import Pipeline, PipelineConfig
-from webcorpus.models import Document
+from websieve.pipeline import Pipeline, PipelineConfig
+from websieve.models import Document
 
 pipeline = Pipeline(PipelineConfig(near_dup_threshold=0.85))
 for doc in pipeline.process(Document(url=u, html=h) for u, h in crawl()):
@@ -97,9 +142,9 @@ print(pipeline.stats.render())
 Every stage also stands alone:
 
 ```python
-from webcorpus.quality.heuristics import assess
-from webcorpus.dedup.minhash import MinHash, LSHIndex
-from webcorpus.clean.boilerplate import extract
+from websieve.quality.heuristics import assess
+from websieve.dedup.minhash import MinHash, LSHIndex
+from websieve.clean.boilerplate import extract
 ```
 
 ## What each stage does
@@ -205,11 +250,32 @@ not installed in CI. They are thin call-throughs; the logic they sit behind is c
 CI runs on Python 3.10, 3.11, and 3.12, and includes a job that **fails if the core ever acquires a
 runtime dependency**.
 
+## Documentation
+
+| Guide | For |
+| :--- | :--- |
+| [Quickstart](docs/quickstart.md) | Five minutes, no crawler needed. Real input and real output |
+| [Architecture](docs/architecture.md) | Why the stages are ordered this way, memory ceiling, limitations |
+| [Tuning](docs/tuning.md) | Calibrating thresholds against your own corpus |
+| [Extending](docs/extending.md) | Swapping the extractor, model, writer, or similarity metric |
+| [Roadmap](ROADMAP.md) | What is next, and what is deliberately not planned |
+| [Contributing](CONTRIBUTING.md) | Setup, the rules specific to this codebase |
+
+## Contact
+
+Issues and PRs welcome. If an issue is not the right shape, or for commercial
+use and private corpora, email
+[contact@eprecisio.com](mailto:contact@eprecisio.com).
+
+Maintained by [Ehtisham Mubarik](https://github.com/ehtishammubarik)
+([LinkedIn](https://www.linkedin.com/in/ehtisham-mubarik)) at
+[Eprecisio Technologies](https://eprecisio.com).
+
 ## Origin
 
 This repository began as a containerized Scrapy deployment (Scrapy, Scrapyd, Postgres, Filebeat,
 Jenkins) built for a Swiss real-estate crawl. That crawler is still here under `immo_crawl/` as a
-working integration example. `webcorpus` is the part that was missing: everything between a finished
+working integration example. `websieve` is the part that was missing: everything between a finished
 crawl and a dataset you would actually train on.
 
 ## License

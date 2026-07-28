@@ -1,6 +1,6 @@
 import pytest
 
-from webcorpus.embed.encoder import (
+from websieve.embed.encoder import (
     Batch,
     adaptive_batches,
     embed_all,

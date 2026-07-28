@@ -1,4 +1,4 @@
-from webcorpus.clean.normalize import (
+from websieve.clean.normalize import (
     collapse_whitespace,
     normalize,
     normalize_unicode,

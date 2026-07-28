@@ -1,4 +1,4 @@
-from webcorpus.clean.boilerplate import extract
+from websieve.clean.boilerplate import extract
 
 BODY = (
     "Running GPU workloads on Kubernetes requires the device plugin to advertise "

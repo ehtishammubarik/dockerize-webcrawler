@@ -1,14 +1,14 @@
 """Command line interface.
 
-    webcorpus build   input.jsonl -o dataset/     full pipeline to sharded output
-    webcorpus assess  input.jsonl                 quality report, drops nothing
-    webcorpus dedup   input.jsonl                 duplicate clusters only
-    webcorpus extract page.html                   HTML to text, one file
+    websieve build   input.jsonl -o dataset/     full pipeline to sharded output
+    websieve assess  input.jsonl                 quality report, drops nothing
+    websieve dedup   input.jsonl                 duplicate clusters only
+    websieve extract page.html                   HTML to text, one file
 
 Input is JSONL with at minimum a ``url`` field and one of ``text`` or ``html``.
 Reads stdin when the path is ``-``, so it composes with a crawler:
 
-    scrapy crawl spider -o - -t jsonlines | webcorpus build - -o dataset/
+    scrapy crawl spider -o - -t jsonlines | websieve build - -o dataset/
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="webcorpus",
+        prog="websieve",
         description="Turn a web crawl into an ML-ready dataset.",
     )
     sub = p.add_subparsers(dest="command", required=True)

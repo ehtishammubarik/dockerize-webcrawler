@@ -12,7 +12,7 @@ Thresholds are tuned against a corpus, never against a feeling.
 ## 1. Measure before changing anything
 
 ```bash
-webcorpus assess "$1" -v | tee /tmp/before.txt
+websieve assess "$1" -v | tee /tmp/before.txt
 ```
 
 Read the histogram. One rule dominating usually means it is mistuned for this
@@ -38,13 +38,13 @@ loosen a threshold to compensate; you will keep the nav text.
 
 ## 3. Change one thing
 
-Edit a single default in `webcorpus/quality/heuristics.py` or pass a custom
+Edit a single default in `websieve/quality/heuristics.py` or pass a custom
 rule tuple. One variable at a time, or you cannot attribute the difference.
 
 ## 4. Measure again
 
 ```bash
-webcorpus assess "$1" -v | tee /tmp/after.txt
+websieve assess "$1" -v | tee /tmp/after.txt
 diff <(grep -E '^\s+\w+\s+[0-9]+$' /tmp/before.txt) \
      <(grep -E '^\s+\w+\s+[0-9]+$' /tmp/after.txt)
 ```

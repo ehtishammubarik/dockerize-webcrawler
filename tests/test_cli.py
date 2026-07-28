@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 
-from webcorpus.cli import main
+from websieve.cli import main
 
 PROSE = (
     "Kubernetes schedules GPU workloads through the NVIDIA device plugin. "
@@ -72,15 +72,15 @@ def test_extract_command_json_output(tmp_path, capsys):
 
 def test_module_is_executable(tmp_path):
     r = subprocess.run(
-        [sys.executable, "-m", "webcorpus.cli", "--help"], capture_output=True, text=True
+        [sys.executable, "-m", "websieve.cli", "--help"], capture_output=True, text=True
     )
-    assert r.returncode == 0 and "webcorpus" in r.stdout
+    assert r.returncode == 0 and "websieve" in r.stdout
 
 
 def test_stdin_input(tmp_path):
     out = tmp_path / "ds"
     r = subprocess.run(
-        [sys.executable, "-m", "webcorpus.cli", "build", "-", "-o", str(out)],
+        [sys.executable, "-m", "websieve.cli", "build", "-", "-o", str(out)],
         input=json.dumps({"url": "u1", "text": PROSE}) + "\n",
         capture_output=True,
         text=True,

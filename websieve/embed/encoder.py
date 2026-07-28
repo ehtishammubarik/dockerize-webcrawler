@@ -182,7 +182,7 @@ class SentenceTransformerEncoder:
         except ImportError as exc:  # pragma: no cover - depends on env
             raise ImportError(
                 "SentenceTransformerEncoder requires the 'embed' extra. "
-                "Install with 'pip install webcorpus[embed]'."
+                "Install with 'pip install websieve[embed]'."
             ) from exc
         self.device = select_device(device)
         self.normalize = normalize

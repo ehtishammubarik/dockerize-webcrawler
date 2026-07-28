@@ -1,13 +1,13 @@
 import pytest
 
-from webcorpus.dedup.exact import (
+from websieve.dedup.exact import (
     ExactDeduper,
     normalized_hash,
     raw_hash,
     signatures,
     structural_hash,
 )
-from webcorpus.dedup.minhash import LSHIndex, MinHash, deduplicate, shingles
+from websieve.dedup.minhash import LSHIndex, MinHash, deduplicate, shingles
 
 A = "the quick brown fox jumps over the lazy dog beside the river at dawn today"
 B = "the quick brown fox jumps over the lazy dog beside the river at dusk today"

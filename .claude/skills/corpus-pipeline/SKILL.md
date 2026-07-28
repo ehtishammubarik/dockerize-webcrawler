@@ -1,6 +1,6 @@
 ---
 name: corpus-pipeline
-description: Working on the webcorpus crawl-to-dataset pipeline. Use for changes to extraction, quality heuristics, deduplication, embedding batching, sharded output, or the stage ordering. Covers the zero-dependency constraint and how to validate a filtering change against a real corpus.
+description: Working on the websieve crawl-to-dataset pipeline. Use for changes to extraction, quality heuristics, deduplication, embedding batching, sharded output, or the stage ordering. Covers the zero-dependency constraint and how to validate a filtering change against a real corpus.
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 
@@ -12,7 +12,7 @@ until a model is worse for reasons no one can attribute.
 
 ## The constraint that governs every change
 
-`webcorpus/` imports **stdlib only**. Before adding an import, confirm it is
+`websieve/` imports **stdlib only**. Before adding an import, confirm it is
 stdlib. If a stage genuinely needs a third party package:
 
 1. Guard the import inside the function that uses it.
@@ -26,9 +26,9 @@ stdlib. If a stage genuinely needs a third party package:
 Never tune against intuition. Tune against a corpus.
 
 ```bash
-webcorpus assess corpus.jsonl            # before
+websieve assess corpus.jsonl            # before
 # make the change
-webcorpus assess corpus.jsonl            # after, compare the histogram
+websieve assess corpus.jsonl            # after, compare the histogram
 ```
 
 A threshold change that moves the keep rate by more than a few points needs the
@@ -48,7 +48,7 @@ is more often extraction returning nav text than thresholds being wrong.
 Check the actual output before touching a threshold:
 
 ```bash
-webcorpus extract suspect_page.html
+websieve extract suspect_page.html
 ```
 
 The heading reclaim in `_best_run` exists because Kadane discards headings on
@@ -80,7 +80,7 @@ looks redundant.
 ## Before finishing
 
 ```bash
-pytest && ruff check webcorpus tests && ruff format --check webcorpus tests
+pytest && ruff check websieve tests && ruff format --check websieve tests
 ```
 
 Report skipped tests and uninstalled linters explicitly. A check that did not

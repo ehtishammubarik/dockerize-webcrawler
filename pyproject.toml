@@ -3,8 +3,8 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "webcorpus"
-version = "0.2.0"
+name = "websieve"
+version = "0.1.0"
 description = "Turn a web crawl into an ML-ready dataset: extract, filter, deduplicate, embed, shard."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,17 +33,17 @@ parquet = ["pyarrow>=14"]
 embed = ["sentence-transformers>=2.2", "torch>=2.0"]
 crawl = ["scrapy>=2.11"]
 dev = ["pytest>=7", "pytest-cov>=4"]
-all = ["webcorpus[parquet,embed,crawl]"]
+all = ["websieve[parquet,embed,crawl]"]
 
 [project.scripts]
-webcorpus = "webcorpus.cli:main"
+websieve = "websieve.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ehtishammubarik/dockerize-webcrawler"
-Issues = "https://github.com/ehtishammubarik/dockerize-webcrawler/issues"
+Homepage = "https://github.com/ehtishammubarik/websieve"
+Issues = "https://github.com/ehtishammubarik/websieve/issues"
 
 [tool.setuptools.packages.find]
-include = ["webcorpus*"]
+include = ["websieve*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

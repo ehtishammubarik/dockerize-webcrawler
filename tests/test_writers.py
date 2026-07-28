@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from webcorpus.export.writers import JsonlShardWriter, read_shards
+from websieve.export.writers import JsonlShardWriter, read_shards
 
 
 def records(n):

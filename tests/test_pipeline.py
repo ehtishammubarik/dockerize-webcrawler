@@ -1,8 +1,8 @@
 import json
 
-from webcorpus.export.writers import JsonlShardWriter, read_shards
-from webcorpus.models import Document
-from webcorpus.pipeline import Pipeline, PipelineConfig
+from websieve.export.writers import JsonlShardWriter, read_shards
+from websieve.models import Document
+from websieve.pipeline import Pipeline, PipelineConfig
 
 PROSE = (
     "Kubernetes schedules GPU workloads through the NVIDIA device plugin. "

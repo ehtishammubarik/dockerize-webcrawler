@@ -1,6 +1,6 @@
 import pytest
 
-from webcorpus.quality import heuristics as q
+from websieve.quality import heuristics as q
 
 PROSE = (
     "Kubernetes schedules GPU workloads through the NVIDIA device plugin. "
