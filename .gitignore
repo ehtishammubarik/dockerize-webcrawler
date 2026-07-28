@@ -1,8 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
 build/
+dist/
+.venv/
+venv/
 
-logs/
+# Test and coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
 
-.idea/
+# Scrapy and Scrapyd runtime state. These are per-deployment artifacts and
+# were previously committed by mistake.
+eggs/
+dbs/
+data/dbs/
+*.db
+.scrapy/
+twistd.pid
 
-.DS_store
+# Datasets produced by the pipeline
+dataset/
+*.jsonl
+*.jsonl.gz
+*.parquet
 
+# Secrets. See SECURITY.md; credentials belong in the environment.
+.env
+*.pem
+*.key
