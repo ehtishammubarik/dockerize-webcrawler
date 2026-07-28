@@ -101,6 +101,25 @@ class PipelineConfig:
     run_near_dedup: bool = True
 
 
+def prepare(doc: Document, config: PipelineConfig | None = None) -> Document:
+    """Extract text from HTML and normalize it, in place.
+
+    Everything downstream, in the pipeline and in the CLI alike, must go through
+    this. The `assess` command originally inspected `doc.text` directly, which
+    is empty for HTML-only input, so it reported that every document failed
+    `word_count` while `build` on the same file kept them. Two commands
+    disagreeing about the same corpus is worse than either being wrong.
+    """
+    cfg = config or PipelineConfig()
+    if doc.html and not doc.text:
+        text, title = extract(doc.html, min_block_chars=cfg.min_block_chars)
+        doc.text = text
+        doc.title = doc.title or title
+    doc.text = normalize(doc.text, form=cfg.unicode_form)
+    doc.html = None
+    return doc
+
+
 class Pipeline:
     """Streaming crawl-to-dataset pipeline.
 
@@ -121,13 +140,7 @@ class Pipeline:
         for doc in docs:
             self.stats.seen += 1
 
-            if doc.html and not doc.text:
-                text, title = extract(doc.html, min_block_chars=cfg.min_block_chars)
-                doc.text = text
-                doc.title = doc.title or title
-
-            doc.text = normalize(doc.text, form=cfg.unicode_form)
-            doc.html = None
+            prepare(doc, cfg)
             doc.crawled_at = doc.crawled_at or datetime.now(timezone.utc).isoformat()
 
             if not doc.text:

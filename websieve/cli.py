@@ -24,7 +24,7 @@ from .clean.boilerplate import extract
 from .dedup.minhash import deduplicate
 from .export.writers import JsonlShardWriter
 from .models import Document
-from .pipeline import Pipeline, PipelineConfig
+from .pipeline import Pipeline, PipelineConfig, prepare
 from .quality.heuristics import assess
 
 
@@ -91,7 +91,9 @@ def cmd_assess(args: argparse.Namespace) -> int:
 
     for doc in _read_docs(args.input):
         total += 1
-        report = assess(doc.text)
+        # Must extract and normalize first: assessing raw doc.text reports that
+        # every HTML-only document fails, and contradicts what build does.
+        report = assess(prepare(doc).text)
         if report.passed:
             passed += 1
         for name in report.failures:
@@ -112,7 +114,7 @@ def cmd_assess(args: argparse.Namespace) -> int:
 
 
 def cmd_dedup(args: argparse.Namespace) -> int:
-    pairs = [(d.url, d.text) for d in _read_docs(args.input)]
+    pairs = [(d.url, prepare(d).text) for d in _read_docs(args.input)]
     dupes = 0
     for key, is_dup, matched, sim in deduplicate(
         pairs, threshold=args.threshold, num_perm=args.num_perm, bands=args.bands

@@ -87,3 +87,41 @@ def test_stdin_input(tmp_path):
     )
     assert r.returncode == 0
     assert json.loads((out / "stats.json").read_text())["stats"]["kept"] == 1
+
+
+HTML_DOC = {
+    "url": "https://example.com/a",
+    "html": "<html><head><title>T</title></head><body><nav><a href='/'>Home</a></nav>"
+            f"<article><p>{PROSE}</p></article><footer>Privacy</footer></body></html>",
+}
+
+
+def test_assess_extracts_html_before_judging(tmp_path, capsys):
+    # Regression: assess used to read doc.text directly, which is empty for
+    # HTML-only input, so it claimed every document failed word_count while
+    # build on the same file kept them.
+    src = write_input(tmp_path, [HTML_DOC])
+    main(["assess", src])
+    assert "would pass  1" in capsys.readouterr().err
+
+
+def test_assess_and_build_agree_on_the_same_file(tmp_path, capsys):
+    docs = [HTML_DOC, {"url": "https://example.com/nav", "text": "Home About Contact"}]
+    src = write_input(tmp_path, docs)
+    main(["assess", src])
+    would_pass = int(capsys.readouterr().err.split("would pass")[1].split()[0])
+
+    out = tmp_path / "ds"
+    main(["build", src, "-o", str(out), "--no-dedup"])
+    kept = json.loads((out / "stats.json").read_text())["stats"]["kept"]
+    assert would_pass == kept
+
+
+def test_dedup_extracts_html_before_hashing(tmp_path, capsys):
+    # The same article as raw HTML and as plain text must be seen as duplicates.
+    from websieve.clean.boilerplate import extract as _x
+    from websieve.clean.normalize import normalize as _n
+    plain = _n(_x(HTML_DOC["html"])[0])
+    src = write_input(tmp_path, [HTML_DOC, {"url": "https://example.com/b", "text": plain}])
+    main(["dedup", src])
+    assert "DUPLICATE_OF" in capsys.readouterr().out
