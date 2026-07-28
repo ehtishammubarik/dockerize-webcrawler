@@ -57,6 +57,19 @@ ruff format --check websieve tests
 
 6. **Docstrings explain why, not what.** The signature already says what.
 
+## Subagents
+
+`.claude/agents/` holds three, all read-only. Delegate via the Agent tool so
+their output does not flood the main context.
+
+| Agent | Use when |
+|---|---|
+| `pr-validator` | Any PR from outside the maintainer. Supply-chain review first, then behaviour verified against the claim rather than the description, then the seven project rules, then every gate |
+| `contribution-triage` | A new issue, question, or offer to take an issue. Reproduces before classifying, and drafts a reply |
+| `corpus-reviewer` | Changes to filtering, dedup, or extraction logic, where failures are silent rather than loud |
+
+None of them merge, push, comment, or approve. They report; you decide.
+
 ## Security
 
 Never commit credentials. The database connection reads `CRAWL_DB_PASSWORD`
