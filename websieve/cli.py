@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -46,6 +47,25 @@ def _read_docs(path: str) -> Iterator[Document]:
     finally:
         if fh is not sys.stdin:
             fh.close()
+
+
+def _positive_int(value: str) -> int:
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return n
+
+
+def _sample_docs(docs: Iterator[Document], n: int, rng: random.Random) -> list[Document]:
+    sample: list[Document] = []
+    for seen, doc in enumerate(docs, 1):
+        if len(sample) < n:
+            sample.append(doc)
+            continue
+        idx = rng.randrange(seen)
+        if idx < n:
+            sample[idx] = doc
+    return sample
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +108,13 @@ def cmd_assess(args: argparse.Namespace) -> int:
     total = 0
     passed = 0
     failures: dict[str, int] = {}
+    docs: Iterator[Document] | list[Document] = _read_docs(args.input)
+    sampled = args.sample is not None
 
-    for doc in _read_docs(args.input):
+    if sampled:
+        docs = _sample_docs(docs, args.sample, random.Random(args.seed))
+
+    for doc in docs:
         total += 1
         # Must extract and normalize first: assessing raw doc.text reports that
         # every HTML-only document fails, and contradicts what build does.
@@ -101,7 +126,8 @@ def cmd_assess(args: argparse.Namespace) -> int:
         if args.verbose and not report.passed:
             print(f"{doc.url}\t{','.join(report.failures)}")
 
-    print(f"documents   {total}", file=sys.stderr)
+    sample_note = "  (sampled from stream)" if sampled else ""
+    print(f"documents   {total}{sample_note}", file=sys.stderr)
     print(
         f"would pass  {passed}  ({passed / total:.1%})" if total else "would pass  0",
         file=sys.stderr,
@@ -192,6 +218,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         help="print each failing document and its failed rules",
+    )
+    a.add_argument(
+        "--sample",
+        type=_positive_int,
+        metavar="N",
+        help="assess a reservoir sample of N documents after reading the full stream",
+    )
+    a.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="seed for --sample so repeated assess runs are reproducible",
     )
     a.set_defaults(func=cmd_assess)
 

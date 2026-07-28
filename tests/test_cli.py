@@ -56,6 +56,49 @@ def test_assess_command_runs(tmp_path, capsys):
     assert main(["assess", src]) == 0
 
 
+def test_assess_sample_limits_documents_assessed(tmp_path, capsys):
+    src = write_input(
+        tmp_path,
+        [{"url": f"u{i}", "text": PROSE} for i in range(20)],
+    )
+    with open(src, "a", encoding="utf-8") as fh:
+        fh.write("NOT JSON\n")
+    assert main(["assess", src, "--sample", "5"]) == 0
+    err = capsys.readouterr().err
+    assert "warning: skipping line 21" in err
+    assert "documents   5  (sampled from stream)" in err
+    assert "would pass  5" in err
+
+
+def test_assess_sample_seed_makes_results_reproducible(tmp_path, capsys):
+    docs = [
+        {"url": f"pass-{i}", "text": PROSE}
+        if i % 2 == 0
+        else {"url": f"fail-{i}", "text": "too short"}
+        for i in range(40)
+    ]
+    src = write_input(tmp_path, docs)
+
+    assert main(["assess", src, "--sample", "10", "--seed", "123"]) == 0
+    first = capsys.readouterr().err
+    assert main(["assess", src, "--sample", "10", "--seed", "123"]) == 0
+    second = capsys.readouterr().err
+
+    assert first == second
+    assert "documents   10  (sampled from stream)" in first
+
+
+def test_assess_without_sample_counts_all_documents(tmp_path, capsys):
+    src = write_input(
+        tmp_path,
+        [{"url": f"u{i}", "text": PROSE} for i in range(20)],
+    )
+    assert main(["assess", src]) == 0
+    err = capsys.readouterr().err
+    assert "documents   20\n" in err
+    assert "(sampled from stream)" not in err
+
+
 def test_dedup_command_reports_duplicates(tmp_path, capsys):
     src = write_input(tmp_path, [{"url": "u1", "text": PROSE}, {"url": "u2", "text": PROSE}])
     assert main(["dedup", src]) == 0
