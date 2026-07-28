@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webcorpus"
+version = "0.2.0"
+description = "Turn a web crawl into an ML-ready dataset: extract, filter, deduplicate, embed, shard."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ehtisham Mubarik", email = "ehtisham@eprecisio.com" }]
+keywords = ["web-scraping", "dataset", "llm", "training-data", "deduplication",
+            "minhash", "embeddings", "mlops", "gpu", "corpus"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Text Processing :: Filters",
+]
+
+# The core has no dependencies. That is deliberate: filtering and dedup should
+# run anywhere, including inside a scraper container you do not control.
+dependencies = []
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=14"]
+embed = ["sentence-transformers>=2.2", "torch>=2.0"]
+crawl = ["scrapy>=2.11"]
+dev = ["pytest>=7", "pytest-cov>=4"]
+all = ["webcorpus[parquet,embed,crawl]"]
+
+[project.scripts]
+webcorpus = "webcorpus.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ehtishammubarik/dockerize-webcrawler"
+Issues = "https://github.com/ehtishammubarik/dockerize-webcrawler/issues"
+
+[tool.setuptools.packages.find]
+include = ["webcorpus*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+  "E501",    # line length is handled by the formatter
+  "RUF001",  # typographic characters appear deliberately in normalization tables
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
