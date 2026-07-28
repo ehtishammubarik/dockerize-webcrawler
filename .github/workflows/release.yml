@@ -116,16 +116,26 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist/ }
 
-      - name: Install the wheel, not the checkout
+      - name: Install the wheel and assert it pulled in nothing
         run: |
+          # Diff the environment before and after, rather than filtering against
+          # an exclude list. Runner images and pip versions ship different
+          # preinstalled sets, and pytest's own dependency tree changes between
+          # releases, so any hardcoded list produces false failures. Anything
+          # new besides websieve itself is a real runtime dependency.
+          pip list --format=freeze | cut -d= -f1 | sort > /tmp/before.txt
           pip install dist/*.whl
-          pip install pytest        # test runner only; not a package dependency
+          pip list --format=freeze | cut -d= -f1 | sort > /tmp/after.txt
 
-      - name: Assert no dependencies came with it
-        run: |
-          extra=$(pip list --format=freeze | grep -vciE '^(pip|setuptools|wheel|pytest|iniconfig|packaging|pluggy|exceptiongroup|tomli|websieve)==')
-          echo "unexpected packages: $extra"
-          test "$extra" -eq 0 || { pip list; echo "::error::wheel pulled in dependencies"; exit 1; }
+          added=$(comm -13 /tmp/before.txt /tmp/after.txt | grep -vx 'websieve' || true)
+          if [ -n "$added" ]; then
+            echo "::error::wheel pulled in dependencies:"; echo "$added"; exit 1
+          fi
+          echo "wheel installed with no dependencies"
+
+          # Only now install the test runner. Installing it first would put its
+          # own dependency tree inside the measurement.
+          pip install pytest
 
       - name: Run the suite against the INSTALLED package
         run: |
