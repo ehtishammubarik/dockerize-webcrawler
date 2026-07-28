@@ -92,7 +92,7 @@ def test_stdin_input(tmp_path):
 HTML_DOC = {
     "url": "https://example.com/a",
     "html": "<html><head><title>T</title></head><body><nav><a href='/'>Home</a></nav>"
-            f"<article><p>{PROSE}</p></article><footer>Privacy</footer></body></html>",
+    f"<article><p>{PROSE}</p></article><footer>Privacy</footer></body></html>",
 }
 
 
@@ -121,6 +121,7 @@ def test_dedup_extracts_html_before_hashing(tmp_path, capsys):
     # The same article as raw HTML and as plain text must be seen as duplicates.
     from websieve.clean.boilerplate import extract as _x
     from websieve.clean.normalize import normalize as _n
+
     plain = _n(_x(HTML_DOC["html"])[0])
     src = write_input(tmp_path, [HTML_DOC, {"url": "https://example.com/b", "text": plain}])
     main(["dedup", src])
