@@ -1,14 +1,21 @@
+import os
 import scrapy
 import psycopg2
 from datetime import date
 from immo_crawl.items import ImmoCrawlItem, ImmoScoutLoader
 
 
-# Login-Angaben für die Postgres-Datenbank
-hostname = 'localhost'
-username = 'postgres'
-password = 'dB$A5Be?&^5q'
-database = 'eva_db'
+# Database connection. Read from the environment: never commit credentials.
+# See SECURITY.md. Set these in your Scrapyd unit file or container env.
+hostname = os.environ.get('CRAWL_DB_HOST', 'localhost')
+username = os.environ.get('CRAWL_DB_USER', 'postgres')
+password = os.environ.get('CRAWL_DB_PASSWORD')
+database = os.environ.get('CRAWL_DB_NAME', 'eva_db')
+
+if not password:
+    raise RuntimeError(
+        'CRAWL_DB_PASSWORD is not set. Export it before running the spider.'
+    )
 
 
 class ImmoscoutSpider(scrapy.Spider):

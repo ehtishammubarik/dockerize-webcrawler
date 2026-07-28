@@ -1,4 +1,7 @@
-ALTER USER postgres WITH PASSWORD 'dB$A5Be?&^5q';
+-- Set the password out of band; do not commit it.
+--   psql -c "ALTER USER postgres WITH PASSWORD '$CRAWL_DB_PASSWORD';"
+\set db_password `echo $CRAWL_DB_PASSWORD`
+ALTER USER postgres WITH PASSWORD :'db_password';
 
 CREATE DATABASE eva_db;
 

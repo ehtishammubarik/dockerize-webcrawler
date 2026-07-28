@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile.psql
     container_name: postgres
     environment:
-       POSTGRES_PASSWORD: dB$A5Be?&^5q
+       POSTGRES_PASSWORD: ${CRAWL_DB_PASSWORD:?set CRAWL_DB_PASSWORD in .env}
        POSTGRES_DB: eva_db
     network_mode: host
     # ports:
