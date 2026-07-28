@@ -1,0 +1,57 @@
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.1] - 2026-07-28
+
+### Added
+
+- `websieve assess --sample N` reads the whole input stream but evaluates a
+  reservoir sample of N documents, so calibrating thresholds against a large
+  crawl no longer requires a full pass. Output is marked `(sampled from
+  stream)` so a sampled count cannot be mistaken for a total.
+  Contributed by [@pollychen-lab](https://github.com/pollychen-lab) in
+  [#10](https://github.com/ehtishammubarik/websieve/pull/10), closing
+  [#4](https://github.com/ehtishammubarik/websieve/issues/4).
+- `--seed` for `--sample`, defaulting to a fixed value so repeated runs are
+  reproducible by default. Without it, identical invocations varied by 11
+  points on a fixed corpus, which would have made the measure-change-measure
+  workflow in `docs/tuning.md` report sampling noise as a real effect.
+
+### Fixed
+
+- `assess` and `dedup` now extract HTML before judging the text. Both read
+  `Document.text` directly, which is empty for HTML-only input until extraction
+  runs, so `assess` reported that every document failed `word_count` while
+  `build` on the same file kept them. Two commands disagreeing about the same
+  corpus is worse than either being wrong alone.
+
+### Changed
+
+- Release pipeline now tests the built artifact rather than only the source
+  tree. The wheel and sdist are each installed into a clean environment, the
+  source tree is deleted so a local import is impossible, and the suite runs
+  against the installed package. Publishing goes to TestPyPI first and is
+  verified there before PyPI, because PyPI versions can never be reused.
+- `.github/scripts/verify_artifact.py` inspects wheel and sdist contents
+  directly: no tests or keys packaged, no credential-shaped strings, zero
+  runtime dependencies read from wheel metadata, and every source module
+  present in the wheel.
+- `scripts/verify-published.sh` verifies a published release in Docker on stock
+  `python:3.x-slim` images, testing what `pip install websieve` actually
+  delivers rather than an artifact CI just built.
+
+## [0.1.0] - 2026-07-28
+
+Initial release under the `websieve` name.
+
+Crawl-to-dataset pipeline: boilerplate extraction, Unicode normalization, nine
+Gopher and C4 quality heuristics with per-rule attribution, exact and MinHash
+near-duplicate detection, GPU-aware adaptive batching, and sharded output with
+verifiable manifests. The core has no runtime dependencies, enforced by CI.
+
+[0.1.1]: https://github.com/ehtishammubarik/websieve/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/ehtishammubarik/websieve/releases/tag/v0.1.0

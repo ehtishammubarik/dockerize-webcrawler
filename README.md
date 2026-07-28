@@ -121,7 +121,8 @@ That breakdown is the point. A filter you cannot attribute is a filter you canno
 ### Inspect before you commit
 
 ```bash
-websieve assess crawl.jsonl -v      # what would be dropped, and why. Drops nothing.
+websieve assess crawl.jsonl -v                  # what would be dropped, and why. Drops nothing.
+websieve assess crawl.jsonl --sample 1000      # same, on a sample, for large crawls
 websieve dedup  crawl.jsonl         # duplicate clusters with similarity scores
 websieve extract page.html          # main-content text from one page
 ```
@@ -243,7 +244,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-107 tests, 92 percent line coverage, no network access and no GPU required. The uncovered remainder
+112 tests, 92 percent line coverage, no network access and no GPU required. The uncovered remainder
 is `ParquetShardWriter` and `SentenceTransformerEncoder`, which need `pyarrow` and `torch` and are
 not installed in CI. They are thin call-throughs; the logic they sit behind is covered.
 
@@ -259,6 +260,7 @@ runtime dependency**.
 | [Tuning](docs/tuning.md) | Calibrating thresholds against your own corpus |
 | [Extending](docs/extending.md) | Swapping the extractor, model, writer, or similarity metric |
 | [Roadmap](ROADMAP.md) | What is next, and what is deliberately not planned |
+| [Changelog](CHANGELOG.md) | What changed in each release |
 | [Contributing](CONTRIBUTING.md) | Setup, the rules specific to this codebase |
 
 ## Contact
