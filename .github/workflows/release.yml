@@ -1,67 +1,228 @@
 name: Release
 
-# Publishes to PyPI via Trusted Publishing (OIDC). No API token is stored
-# anywhere: GitHub proves the workflow's identity to PyPI directly.
+# Publishes to PyPI via Trusted Publishing (OIDC). No API token is stored.
 #
 # The trusted publisher on PyPI must match ALL of these exactly:
-#   Owner:              ehtishammubarik
-#   Repository:         websieve
-#   Workflow filename:  release.yml
-#   Environment:        (leave blank)
+#   Owner: ehtishammubarik | Repository: websieve
+#   Workflow filename: release.yml | Environment: (blank)
+#
+# The gate below exists because the source tests import websieve from the
+# checkout, so they cannot see a packaging defect. Stages 3 and 4 install the
+# built artifact into a clean environment and test THAT.
+#
+# PyPI versions can never be reused, so a bad publish is permanent. TestPyPI
+# runs first for exactly that reason.
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run every gate but do not publish"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  # 1. Source must be green before anything is built.
+  source:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest
+      - run: python .github/scripts/check_no_deps.py
+
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+        with: { python-version: "3.12" }
+      - run: pip install ruff
+      - run: ruff check websieve tests
+      - run: ruff format --check websieve tests
 
-      - name: Refuse to release a failing tree
-        run: |
-          pip install -e ".[dev]"
-          pytest
-          python .github/scripts/check_no_deps.py
+  # 2. Build, then verify the artifact itself.
+  build:
+    needs: [source, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
 
-      - name: Verify the tag matches the version in pyproject
+      - name: Tag must match the packaged version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          # A tag that disagrees with the packaged version produces a release
-          # nobody can reproduce from the repo. Fail here instead.
+          # A tag disagreeing with the version produces a release nobody can
+          # reproduce from the repo.
           tag="${GITHUB_REF_NAME#v}"
           ver=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           echo "tag=$tag pyproject=$ver"
           test "$tag" = "$ver" || { echo "::error::tag v$tag != pyproject version $ver"; exit 1; }
-        if: startsWith(github.ref, 'refs/tags/v')
+
+      - name: Refuse to republish an existing version
+        run: |
+          # PyPI rejects a duplicate upload anyway, but failing here is a
+          # clearer message than a 400 from twine at the last step.
+          ver=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/websieve/$ver/json" || echo 000)
+          if [ "$code" = "200" ]; then
+            echo "::error::websieve $ver is already on PyPI. Versions cannot be reused; bump it."
+            exit 1
+          fi
+          echo "version $ver is free (HTTP $code)"
 
       - name: Build
         run: |
+          # Clean first: a stale build/ directory silently repackages modules
+          # that the current config would exclude, which hides packaging bugs.
+          rm -rf build/ dist/ ./*.egg-info
           pip install build twine
           python -m build
-          twine check dist/*
+
+      - name: twine check --strict
+        run: twine check --strict dist/*   # README must render on PyPI
+
+      - name: Verify artifact contents
+        run: python .github/scripts/verify_artifact.py dist/
 
       - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
+        with: { name: dist, path: dist/ }
 
-  publish:
+  # 3. Install the WHEEL into a clean env and run the suite against it.
+  test-wheel:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write        # required for Trusted Publishing
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python-version }}" }
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+
+      - name: Install the wheel, not the checkout
+        run: |
+          pip install dist/*.whl
+          pip install pytest        # test runner only; not a package dependency
+
+      - name: Assert no dependencies came with it
+        run: |
+          extra=$(pip list --format=freeze | grep -vciE '^(pip|setuptools|wheel|pytest|iniconfig|packaging|pluggy|exceptiongroup|tomli|websieve)==')
+          echo "unexpected packages: $extra"
+          test "$extra" -eq 0 || { pip list; echo "::error::wheel pulled in dependencies"; exit 1; }
+
+      - name: Run the suite against the INSTALLED package
+        run: |
+          # Delete the source tree so an accidental local import is impossible.
+          rm -rf websieve
+          python -c "import websieve, pathlib; print('imported from', pathlib.Path(websieve.__file__).parent)"
+          pytest tests/ -q
+
+      - name: Smoke test the CLI entry point
+        run: |
+          websieve --help > /dev/null
+          printf '%s\n' '{"url":"https://e.com/a","text":"Kubernetes exposes GPUs through the NVIDIA device plugin, which advertises nvidia.com/gpu as an allocatable resource on every node in the pool. Once training and inference share the same hardware, fragmentation becomes the dominant concern for the scheduler. MIG partitioning splits an A100 into as many as seven independent instances, which suits small inference models far better than whole-card allocation."}' > /tmp/in.jsonl
+          websieve build /tmp/in.jsonl -o /tmp/ds
+          python - <<'PY'
+          import json, pathlib
+          s = json.loads(pathlib.Path("/tmp/ds/stats.json").read_text())["stats"]
+          assert s["kept"] == 1, s
+          assert pathlib.Path("/tmp/ds/manifest.json").exists()
+          print("cli smoke test passed:", s)
+          PY
+
+  # 4. The sdist must be independently buildable and testable. This is the only
+  #    way to catch a tarball missing a file.
+  test-sdist:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      - name: Build from sdist and test the result
+        run: |
+          pip install dist/*.tar.gz    # forces a rebuild from the tarball
+          pip install pytest
+          rm -rf websieve
+          pytest tests/ -q
+          websieve --help > /dev/null
+
+  # 5. TestPyPI first. A bad PyPI publish is permanent.
+  testpypi:
+    needs: [test-wheel, test-sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { id-token: write }
     steps:
       - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+        with: { name: dist, path: dist/ }
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  verify-testpypi:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install from TestPyPI and smoke test
+        run: |
+          ver=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          for i in 1 2 3 4 5 6; do
+            pip install --index-url https://test.pypi.org/simple/ "websieve==$ver" && break
+            echo "not indexed yet, retry $i"; sleep 20
+          done
+          rm -rf websieve
+          websieve --help > /dev/null
+          python -c "from websieve.pipeline import Pipeline; print('TestPyPI artifact imports cleanly')"
+
+  # 6. Only now, the real thing.
+  pypi:
+    needs: verify-testpypi
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify-pypi:
+    needs: pypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install from real PyPI and smoke test
+        run: |
+          ver=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          for i in 1 2 3 4 5 6; do
+            pip install --no-cache-dir "websieve==$ver" && break
+            echo "not indexed yet, retry $i"; sleep 20
+          done
+          rm -rf websieve
+          websieve --help > /dev/null
+          python -c "import websieve; print('published artifact verified')"
