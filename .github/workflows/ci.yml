@@ -25,13 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Verify the core has no runtime dependencies
+      - name: Verify the core has no module-level third-party imports
         run: |
-          # The whole point of the core is that it runs anywhere. If an import
-          # of a third-party package sneaks in, this job fails before the tests
-          # get a chance to pass under a fatter environment.
-          pip install pipdeptree
-          pipdeptree --packages webcorpus --warn fail
+          # The point of the core is that it runs anywhere. Without this job the
+          # claim rots the first time someone adds a convenient import, and it
+          # would still pass tests in a fatter dev environment.
+          # Function-level imports are the sanctioned escape hatch for optional
+          # extras, so they are reported but do not fail.
+          python .github/scripts/check_no_deps.py
 
       - name: Test
         run: pytest --cov=webcorpus --cov-report=term-missing --cov-report=xml
