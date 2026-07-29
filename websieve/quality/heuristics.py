@@ -21,8 +21,54 @@ import statistics
 from collections.abc import Callable
 from dataclasses import dataclass
 
-_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", re.UNICODE)
-_SENTENCE_END = re.compile(r"[.!?。！？]")
+from .language import ScriptProfile, profile
+
+# Combining marks, which Python's \w excludes because they are category Mn or
+# Mc rather than alphanumeric. Without them every abugida mis-tokenizes: the
+# Devanagari word for "machine" splits into two fragments because the vowel
+# sign reads as a word boundary. That inflates word counts and collapses mean
+# word length, which is what rejected ordinary Hindi at 1.4 characters per
+# word. Decomposed Latin diacritics have the same problem.
+_COMBINING = (
+    "\u0300-\u036f"  # Latin, Greek, Cyrillic
+    "\u0483-\u0489"  # Cyrillic
+    "\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7"  # Hebrew points
+    "\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e8"  # Arabic
+    "\u0900-\u0903\u093a-\u094f\u0951-\u0957\u0962\u0963"  # Devanagari
+    "\u0981-\u0983\u09bc\u09be-\u09cd\u09d7\u09e2\u09e3"  # Bengali
+    "\u0a01-\u0a03\u0a3c-\u0a51"  # Gurmukhi
+    "\u0b82\u0bbe-\u0bcd\u0bd7"  # Tamil
+    "\u0e31\u0e34-\u0e3a\u0e47-\u0e4e"  # Thai
+    "\u0f71-\u0f84\u0f86\u0f87"  # Tibetan
+    "\u102b-\u103e"  # Myanmar
+)
+
+# A word is a letter followed by any letters or combining marks, with internal
+# apostrophes and hyphens allowed.
+# Note the alternation. [^\W\d_] is already a negated class, so putting the
+# combining marks inside it would exclude them, which is the opposite of the
+# intent and fails silently: Latin still tokenizes correctly, so the mistake
+# only shows up on abugidas.
+_LETTER = "[^\\W\\d_]"
+_LETTER_OR_MARK = "(?:[^\\W\\d_]|[" + _COMBINING + "])"
+_WORD = re.compile(
+    _LETTER + _LETTER_OR_MARK + "*(?:['\u2019-]" + _LETTER + _LETTER_OR_MARK + "*)*",
+    re.UNICODE,
+)
+
+# Sentence-terminating punctuation across writing systems. Restricting this to
+# ASCII plus CJK rejected Hindi outright, because Devanagari ends sentences
+# with a danda rather than a full stop.
+_SENTENCE_END = re.compile(
+    "["
+    ".!?"  # Latin and most European
+    "\u3002\uff01\uff1f"  # CJK full stop, fullwidth ! and ?
+    "\u0964\u0965"  # Devanagari danda, double danda
+    "\u06d4"  # Arabic full stop
+    "\u1362"  # Ethiopic full stop
+    "\u0589"  # Armenian full stop
+    "]"
+)
 
 # Terminal punctuation that marks a line as prose rather than a nav item.
 _ELLIPSIS = ("...", "…")
@@ -61,13 +107,14 @@ class QualityReport:
 
     passed: bool
     rules: tuple[Rule, ...]
+    script: ScriptProfile | None = None
 
     @property
     def failures(self) -> tuple[str, ...]:
         return tuple(r.name for r in self.rules if not r.passed)
 
     def to_dict(self) -> dict:
-        return {
+        out = {
             "passed": self.passed,
             "failures": list(self.failures),
             "rules": {
@@ -75,6 +122,11 @@ class QualityReport:
                 for r in self.rules
             },
         }
+        if self.script is not None:
+            out["script"] = self.script.script
+            out["script_confidence"] = self.script.confidence
+            out["space_delimited"] = self.script.space_delimited
+        return out
 
 
 def words(text: str) -> list[str]:
@@ -190,6 +242,28 @@ def boilerplate_markers(text: str, *, max_hits: int = 2) -> Rule:
     return Rule("boilerplate_markers", hits <= max_hits, hits, max_hits)
 
 
+def char_count(text: str, *, lo: int = 80, hi: int = 400_000) -> Rule:
+    """Length in letters, for scripts that do not delimit words with spaces.
+
+    Stands in for ``word_count``. The floor of 80 is calibrated to be roughly
+    equivalent to the 50-word English minimum: CJK text averages close to two
+    characters per word-equivalent, and setting it by eye rather than by
+    equivalence would silently move the bar between languages.
+    """
+    n = sum(1 for c in text if c.isalpha())
+    return Rule("char_count", lo <= n <= hi, n, lo)
+
+
+def symbol_to_char_ratio(text: str, *, max_ratio: float = 0.05) -> Rule:
+    """``symbol_to_word_ratio`` denominated in characters rather than words."""
+    letters = sum(1 for c in text if c.isalpha())
+    if not letters:
+        return Rule("symbol_to_char_ratio", False, 1.0, max_ratio)
+    symbols = text.count("#") + sum(text.count(e) for e in _ELLIPSIS)
+    ratio = symbols / letters
+    return Rule("symbol_to_char_ratio", ratio <= max_ratio, round(ratio, 4), max_ratio)
+
+
 DEFAULT_RULES: tuple[Callable[[str], Rule], ...] = (
     word_count,
     mean_word_length,
@@ -203,12 +277,67 @@ DEFAULT_RULES: tuple[Callable[[str], Rule], ...] = (
 )
 
 
-def assess(text: str, rules=DEFAULT_RULES) -> QualityReport:
+# Applied when the dominant script does not delimit words with spaces. The
+# word-based rules are not relaxed here, they are removed: `mean_word_length`
+# and `alpha_word_ratio` have no meaningful interpretation when the tokenizer
+# cannot find word boundaries, so a "tuned" threshold would be a made-up number
+# wearing the appearance of rigour.
+NON_SPACE_DELIMITED_RULES: tuple[Callable[[str], Rule], ...] = (
+    char_count,
+    symbol_to_char_ratio,
+    bullet_line_ratio,
+    ellipsis_line_ratio,
+    terminal_punctuation_ratio,
+    repetition_ratio,
+    boilerplate_markers,
+)
+
+
+def select_rules(script: ScriptProfile) -> tuple[Callable[[str], Rule], ...]:
+    """Compose a rule set from the script's traits.
+
+    Built from independent traits rather than a language whitelist, because the
+    traits vary independently: Korean is space-delimited with dense characters,
+    Thai is neither space-delimited nor punctuated, Chinese is not
+    space-delimited but is punctuated.
+
+    An undetermined script keeps the defaults. Text with no classifiable
+    letters is usually junk the default rules reject anyway, and adapting on no
+    evidence would let it through.
+    """
+    if script.is_undetermined:
+        return DEFAULT_RULES
+
+    base = DEFAULT_RULES if script.space_delimited else NON_SPACE_DELIMITED_RULES
+    rules: list[Callable[[str], Rule]] = []
+
+    for rule in base:
+        if rule is terminal_punctuation_ratio and not script.uses_terminal_punctuation:
+            continue  # the script has no terminal punctuation to find
+        if rule is mean_word_length and script.dense_characters:
+            # Lower floor, not removal: character-soup is still worth catching.
+            rules.append(lambda t: mean_word_length(t, lo=1.8))
+            continue
+        rules.append(rule)
+
+    return tuple(rules)
+
+
+def assess(text: str, rules=None, *, adapt_to_script: bool = True) -> QualityReport:
     """Run all rules and aggregate.
 
     Every rule runs even after one fails, because the failure breakdown is the
     point. Short-circuiting would save microseconds and cost you the ability to
     tune thresholds against a real corpus.
+
+    By default the rule set adapts to the dominant script: text in a language
+    that does not delimit words with spaces is scored on characters instead.
+    Pass ``rules`` explicitly to override, or ``adapt_to_script=False`` to force
+    the English-derived defaults regardless of what the text is.
     """
+    script = profile(text) if (rules is None and adapt_to_script) else None
+    if rules is None:
+        rules = select_rules(script) if adapt_to_script else DEFAULT_RULES
+
     results = tuple(rule(text) for rule in rules)
-    return QualityReport(all(r.passed for r in results), results)
+    return QualityReport(all(r.passed for r in results), results, script)

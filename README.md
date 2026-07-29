@@ -171,6 +171,13 @@ Reimplemented rather than vendored so every threshold is visible and adjustable.
 genuinely differ between general web text and a domain corpus, and you cannot tune what you cannot
 see. **Every rule runs even after one fails**, so the failure histogram is complete.
 
+**The rule set adapts to the writing system.** Every one of those rules was derived from English and
+assumes words are separated by spaces, so applied unchanged they reject ordinary Chinese, Japanese,
+Thai, and Korean outright. Script is detected per document, and the rules are composed from its
+traits: not space-delimited means character-based length rules, no terminal punctuation means that
+rule is dropped, dense characters mean a lower word-length floor. Verified against twelve writing
+systems.
+
 ### Deduplication
 
 Two passes, cheap before expensive.

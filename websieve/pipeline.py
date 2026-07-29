@@ -99,6 +99,7 @@ class PipelineConfig:
     unicode_form: str = "NFKC"
     run_quality: bool = True
     run_near_dedup: bool = True
+    adapt_to_script: bool = True
 
 
 def prepare(doc: Document, config: PipelineConfig | None = None) -> Document:
@@ -154,8 +155,14 @@ class Pipeline:
             doc.signatures = signatures(doc.text)
 
             if cfg.run_quality:
-                report = assess(doc.text)
+                report = assess(doc.text, adapt_to_script=cfg.adapt_to_script)
                 doc.quality = report.to_dict()
+                if report.script is not None:
+                    # Document.language existed from the start and was never
+                    # populated. It holds the detected script rather than a
+                    # language: distinguishing Mandarin from Cantonese needs a
+                    # model, and the thresholds depend on the writing system.
+                    doc.language = report.script.script
                 if not report.passed:
                     self.stats.dropped_quality += 1
                     for name in report.failures:

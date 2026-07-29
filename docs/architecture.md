@@ -74,9 +74,10 @@ were told about.
   fragmented across many short blocks, and keep a sidebar that happens to be
   long and prose-like. Use `trafilatura` when accuracy matters more than
   portability.
-- **Language is not detected.** The quality thresholds assume space-delimited
-  text and will misjudge Chinese, Japanese, and Thai, where the word tokenizer
-  does not apply.
+- **Script is detected, language is not.** The rule set adapts to the writing
+  system, which is what the thresholds actually depend on. It will not tell you
+  Mandarin from Cantonese, or Hindi from Marathi, because that needs a model and
+  no threshold here varies on it.
 - **Dedup is greedy and order-dependent.** The first document in a cluster
   wins. Feeding the corpus in a different order can keep a different
   representative.
