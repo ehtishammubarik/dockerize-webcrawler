@@ -76,6 +76,36 @@ Set `bands` so the knee sits somewhat below your `threshold`. Verification
 removes the false positives; a knee above the threshold loses true ones
 outright, and those you never see.
 
+## Non-English corpora
+
+The rule set adapts to the dominant script automatically. You should not need
+to tune anything for language alone.
+
+| Trait | Effect on the rules |
+| :--- | :--- |
+| Not space-delimited (Chinese, Japanese, Thai, Lao, Khmer, Burmese, Tibetan) | `word_count` and `mean_word_length` are replaced by `char_count` and `symbol_to_char_ratio`. Word-based rules have no meaning when the tokenizer cannot find word boundaries |
+| No terminal punctuation (Thai, Lao, Khmer, Burmese, Tibetan) | `terminal_punctuation_ratio` is dropped. These scripts separate sentences with a space |
+| Dense characters (Hangul, the abugidas) | `mean_word_length` floor drops to 1.8. One character carries a full syllable, so words are shorter in characters without being shorter in any real sense |
+
+The detected script is written to each document's `language` field and appears
+in `stats.json`.
+
+To see what was detected:
+
+```bash
+websieve assess crawl.jsonl --sample 200 -v
+```
+
+If a corpus is mixed, detection is per document, so a multilingual crawl is
+handled without splitting it first.
+
+To force the English-derived rules regardless of script, for instance when
+comparing against an older run:
+
+```python
+assess(text, adapt_to_script=False)
+```
+
 ## Domain corpora
 
 The defaults come from general-web recipes. Narrow corpora usually need:
