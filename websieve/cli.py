@@ -19,7 +19,7 @@ import random
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from .clean.boilerplate import extract
 from .dedup.minhash import deduplicate
@@ -28,12 +28,15 @@ from .models import Document
 from .pipeline import Pipeline, PipelineConfig, prepare
 from .quality.heuristics import assess
 
+if TYPE_CHECKING:
+    from .pipeline import PipelineStats
+
 
 def _open_input(path: str) -> TextIO:
     return sys.stdin if path == "-" else open(path, encoding="utf-8")
 
 
-def _read_docs(path: str) -> Iterator[Document]:
+def _read_docs(path: str, stats: PipelineStats | None = None) -> Iterator[Document]:
     fh = _open_input(path)
     try:
         for lineno, line in enumerate(fh, 1):
@@ -43,6 +46,9 @@ def _read_docs(path: str) -> Iterator[Document]:
             try:
                 yield Document.from_dict(json.loads(line))
             except (json.JSONDecodeError, TypeError) as exc:
+                if stats is not None:
+                    stats.seen += 1
+                    stats.malformed += 1
                 print(f"warning: skipping line {lineno}: {exc}", file=sys.stderr)
     finally:
         if fh is not sys.stdin:
@@ -85,7 +91,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     with JsonlShardWriter(
         args.output, shard_size=args.shard_size, compress=not args.no_compress
     ) as writer:
-        for doc in pipeline.process(_read_docs(args.input)):
+        for doc in pipeline.process(_read_docs(args.input, pipeline.stats)):
             writer.write(doc.to_dict())
         manifest = writer.close()
 
