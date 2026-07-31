@@ -48,7 +48,78 @@ def test_malformed_line_is_skipped_not_fatal(tmp_path):
     p.write_text('{"url":"u1","text":"' + PROSE + '"}\nNOT JSON\n', encoding="utf-8")
     out = tmp_path / "ds"
     assert main(["build", str(p), "-o", str(out)]) == 0
-    assert json.loads((out / "stats.json").read_text())["stats"]["seen"] == 1
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["seen"] == 2
+    assert stats["malformed"] == 1
+    assert stats["kept"] == 1
+    assert stats["seen"] == stats["kept"] + stats["dropped"] + stats["malformed"]
+
+
+def test_clean_file_has_no_malformed(tmp_path):
+    src = write_input(
+        tmp_path,
+        [
+            {"url": "u1", "text": PROSE},
+            {"url": "u2", "text": PROSE + " variant."},
+            {"url": "u3", "text": PROSE + " another variant."},
+        ],
+    )
+    out = tmp_path / "ds"
+    assert main(["build", src, "-o", str(out)]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 0
+    assert stats["seen"] == stats["kept"] + stats["dropped"] + stats["malformed"]
+
+
+def test_scattered_bad_lines_are_all_counted(tmp_path):
+    p = tmp_path / "in.jsonl"
+    good = '{"url":"u1","text":"' + PROSE + '"}'
+    p.write_text(
+        good + "\nBROKEN ONE\n" + good + "\nBROKEN TWO\n" + good + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out)]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["seen"] == 5
+    assert stats["malformed"] == 2
+    assert stats["seen"] == stats["kept"] + stats["dropped"] + stats["malformed"]
+
+
+def test_truncated_line_is_counted_as_malformed(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text(
+        '{"url":"u1","text":"' + PROSE + '"}\n{"url":"u2","text":',
+        encoding="utf-8",
+    )
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out)]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["seen"] == 2
+    assert stats["malformed"] == 1
+    assert stats["seen"] == stats["kept"] + stats["dropped"] + stats["malformed"]
+
+
+def test_all_lines_malformed_still_closes(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text("BROKEN ONE\nBROKEN TWO\nBROKEN THREE\n", encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out)]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["seen"] == 3
+    assert stats["malformed"] == 3
+    assert stats["kept"] == 0
+    assert stats["seen"] == stats["kept"] + stats["dropped"] + stats["malformed"]
+    assert (out / "stats.json").exists()
+
+
+def test_stats_json_records_malformed(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text('{"url":"u1","text":"' + PROSE + '"}\nNOT JSON\n', encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out)]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert "malformed" in stats
 
 
 def test_assess_command_runs(tmp_path, capsys):
