@@ -27,6 +27,7 @@ from .export.writers import JsonlShardWriter
 from .models import Document
 from .pipeline import Pipeline, PipelineConfig, prepare
 from .quality.heuristics import assess
+from .version import __version__
 
 
 def _open_input(path: str) -> TextIO:
@@ -90,7 +91,10 @@ def cmd_build(args: argparse.Namespace) -> int:
         manifest = writer.close()
 
     stats = pipeline.stats
-    report = {"stats": stats.to_dict(), "manifest": manifest}
+    manifest["websieve_version"] = __version__
+    stats_report = stats.to_dict()
+    stats_report["websieve_version"] = __version__
+    report = {"websieve_version": __version__, "stats": stats_report, "manifest": manifest}
     (Path(args.output) / "stats.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
@@ -181,7 +185,11 @@ def build_parser() -> argparse.ArgumentParser:
         prog="websieve",
         description="Turn a web crawl into an ML-ready dataset.",
     )
+    p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="command", required=True)
+
+    def add_version(sp):
+        sp.add_argument("--version", action="version", version=__version__)
 
     def add_dedup_opts(sp):
         sp.add_argument(
@@ -209,6 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--no-dedup", action="store_true", help="skip near-duplicate removal")
     b.add_argument("--no-compress", action="store_true", help="write plain JSONL")
     add_dedup_opts(b)
+    add_version(b)
     b.set_defaults(func=cmd_build)
 
     a = sub.add_parser("assess", help="quality report without dropping anything")
@@ -231,18 +240,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="seed for --sample so repeated assess runs are reproducible",
     )
+    add_version(a)
     a.set_defaults(func=cmd_assess)
 
     d = sub.add_parser("dedup", help="report near-duplicate clusters")
     d.add_argument("input", help="JSONL file, or - for stdin")
     d.add_argument("-v", "--verbose", action="store_true")
     add_dedup_opts(d)
+    add_version(d)
     d.set_defaults(func=cmd_dedup)
 
     e = sub.add_parser("extract", help="HTML to main-content text")
     e.add_argument("input", help="HTML file, or - for stdin")
     e.add_argument("--min-block-chars", type=int, default=25)
     e.add_argument("--json", action="store_true", help="emit JSON instead of text")
+    add_version(e)
     e.set_defaults(func=cmd_extract)
 
     return p

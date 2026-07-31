@@ -15,7 +15,9 @@ Exit codes: 0 all checks passed, 1 at least one failed.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -87,6 +89,31 @@ def check_wheel(wheel: Path) -> None:
             fail("wheel has no METADATA")
             return
         text = zf.read(meta).decode("utf-8", "replace")
+        artifact_version = next(
+            (ln.split(":", 1)[1].strip() for ln in text.splitlines() if ln.startswith("Version:")),
+            None,
+        )
+        if not artifact_version:
+            fail("wheel metadata has no Version field")
+        else:
+            with tempfile.TemporaryDirectory() as tmp:
+                zf.extractall(tmp)
+                check = subprocess.run(
+                    [sys.executable, "-c", "import websieve; print(websieve.__version__)"],
+                    cwd=tmp,
+                    capture_output=True,
+                    text=True,
+                )
+            if check.returncode != 0:
+                fail(f"wheel import/version check failed: {check.stderr.strip()}")
+            elif check.stdout.strip() != artifact_version:
+                fail(
+                    "wheel __version__ does not match metadata: "
+                    f"{check.stdout.strip()!r} != {artifact_version!r}"
+                )
+            else:
+                ok(f"wheel __version__ resolves to {artifact_version}")
+
         runtime = [
             ln.split(":", 1)[1].strip()
             for ln in text.splitlines()

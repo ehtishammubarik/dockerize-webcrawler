@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 
+from websieve import __version__
 from websieve.cli import main
 
 PROSE = (
@@ -16,6 +17,23 @@ def write_input(tmp_path, docs):
     p = tmp_path / "in.jsonl"
     p.write_text("\n".join(json.dumps(d) for d in docs) + "\n", encoding="utf-8")
     return str(p)
+
+
+def test_version_is_available_at_root_and_each_subcommand():
+    for argv in (
+        ["--version"],
+        ["build", "--version"],
+        ["assess", "--version"],
+        ["dedup", "--version"],
+        ["extract", "--version"],
+    ):
+        result = subprocess.run(
+            [sys.executable, "-m", "websieve.cli", *argv],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == __version__
 
 
 def test_build_writes_dataset_and_stats(tmp_path):
@@ -34,6 +52,9 @@ def test_build_writes_dataset_and_stats(tmp_path):
     assert stats["stats"]["kept"] == 1
     assert stats["stats"]["dropped_by_stage"]["exact_duplicate"] == 1
     assert (out / "manifest.json").exists()
+    assert stats["websieve_version"] == __version__
+    assert stats["stats"]["websieve_version"] == __version__
+    assert stats["manifest"]["websieve_version"] == __version__
 
 
 def test_build_respects_disabled_stages(tmp_path):
