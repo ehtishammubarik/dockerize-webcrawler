@@ -2,6 +2,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from websieve.cli import main
 
 PROSE = (
@@ -120,6 +122,80 @@ def test_stats_json_records_malformed(tmp_path):
     assert main(["build", str(p), "-o", str(out)]) == 0
     stats = json.loads((out / "stats.json").read_text())["stats"]
     assert "malformed" in stats
+
+
+def test_build_strict_exits_nonzero_on_malformed(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text('{"url":"u1","text":"' + PROSE + '"}\nNOT JSON\n', encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out), "--strict"]) == 1
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 1
+
+
+def test_build_strict_passes_when_no_malformed(tmp_path):
+    src = write_input(tmp_path, [{"url": "u1", "text": PROSE}])
+    out = tmp_path / "ds"
+    assert main(["build", src, "-o", str(out), "--strict"]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 0
+
+
+def test_build_max_malformed_within_budget_returns_zero(tmp_path):
+    p = tmp_path / "in.jsonl"
+    good = '{"url":"u1","text":"' + PROSE + '"}'
+    p.write_text(good + "\nBAD ONE\n" + good + "\nBAD TWO\n", encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out), "--max-malformed", "5"]) == 0
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 2
+
+
+def test_build_max_malformed_exceeded_returns_nonzero(tmp_path):
+    p = tmp_path / "in.jsonl"
+    good = '{"url":"u1","text":"' + PROSE + '"}'
+    p.write_text(
+        good + "\nBAD ONE\n" + good + "\nBAD TWO\n" + good + "\nBAD THREE\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out), "--max-malformed", "2"]) == 1
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 3
+
+
+def test_build_max_malformed_zero_rejected_by_argparse(tmp_path):
+    src = write_input(tmp_path, [{"url": "u1", "text": PROSE}])
+    out = tmp_path / "ds"
+    with pytest.raises(SystemExit) as exc_info:
+        main(["build", src, "-o", str(out), "--max-malformed", "0"])
+    assert exc_info.value.code == 2
+
+
+def test_build_strict_and_max_malformed_are_mutually_exclusive(tmp_path):
+    src = write_input(tmp_path, [{"url": "u1", "text": PROSE}])
+    out = tmp_path / "ds"
+    with pytest.raises(SystemExit) as exc_info:
+        main(["build", src, "-o", str(out), "--strict", "--max-malformed", "3"])
+    assert exc_info.value.code == 2
+
+
+def test_build_strict_writes_stats_and_manifest_before_failing(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text('{"url":"u1","text":"' + PROSE + '"}\nNOT JSON\n', encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out), "--strict"]) == 1
+    assert (out / "stats.json").exists()
+    assert (out / "manifest.json").exists()
+
+
+def test_build_strict_all_lines_malformed(tmp_path):
+    p = tmp_path / "in.jsonl"
+    p.write_text("BROKEN ONE\nBROKEN TWO\nBROKEN THREE\n", encoding="utf-8")
+    out = tmp_path / "ds"
+    assert main(["build", str(p), "-o", str(out), "--strict"]) == 1
+    stats = json.loads((out / "stats.json").read_text())["stats"]
+    assert stats["malformed"] == 3
 
 
 def test_assess_command_runs(tmp_path, capsys):

@@ -107,6 +107,20 @@ def cmd_build(args: argparse.Namespace) -> int:
         f"in {manifest['shard_count']} shard(s) to {args.output}",
         file=sys.stderr,
     )
+    if args.strict and stats.malformed > 0:
+        print(
+            f"error: --strict set but {stats.malformed} malformed line(s) "
+            "encountered; see stats.json",
+            file=sys.stderr,
+        )
+        return 1
+    if args.max_malformed is not None and stats.malformed > args.max_malformed:
+        print(
+            f"error: {stats.malformed} malformed lines exceed --max-malformed "
+            f"{args.max_malformed}; see stats.json",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -214,6 +228,19 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--no-quality", action="store_true", help="skip quality filtering")
     b.add_argument("--no-dedup", action="store_true", help="skip near-duplicate removal")
     b.add_argument("--no-compress", action="store_true", help="write plain JSONL")
+    strict_group = b.add_mutually_exclusive_group()
+    strict_group.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit non-zero if any input line failed to parse",
+    )
+    strict_group.add_argument(
+        "--max-malformed",
+        type=_positive_int,
+        metavar="N",
+        default=None,
+        help="exit non-zero if more than N input lines failed to parse",
+    )
     add_dedup_opts(b)
     b.set_defaults(func=cmd_build)
 
